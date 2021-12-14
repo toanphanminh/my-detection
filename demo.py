@@ -1,35 +1,16 @@
-from pathlib import Path
-
-
-import av
-import cv2
-import numpy as np
 import streamlit as st
-from aiortc.contrib.media import MediaPlayer
+import cv2 as cv
+import tempfile
 
-from streamlit_webrtc import (
-    AudioProcessorBase,
-    RTCConfiguration,
-    VideoProcessorBase,
-    WebRtcMode,
-    webrtc_streamer,
-)
-
-from google_drive_downloader import GoogleDriveDownloader as gdd
-import os
-
-
-from pathlib import Path
 import os
 import cv2
 import torch
 
 import numpy as np
-from models.common import DetectMultiBackend
-from models.experimental import attempt_load
-from utils.datasets import LoadStreams, LoadImages
 from utils.general import  non_max_suppression, scale_coords, xyxy2xywh
 
+from google_drive_downloader import GoogleDriveDownloader as gdd
+import os
 
 class_label = ["nguoi", "xe dap", "o to", "xe may", "may bay", "xe buyt", "tau hoa", "xe tai", "thuyen", "den giao thong",
          "voi chua chay", "bien bao dung", "dong ho do xe", "bang ghe", "chim", "meo", "cho", "ngua", "cuu", "bo",
@@ -76,12 +57,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 
 COLORS = np.random.uniform(0, 255, size=(len(class_label), 3))
 
-class OpenCVVideoProcessor(VideoProcessorBase):
-    def __init__(self) -> None:
-       self.model  = DetectMultiBackend('yolov5n.pt', device='cpu') #torch.load('yolov5n.pt', map_location='cpu')['model'].float().fuse().eval() 
-       #self.model = torch.load('yolov5n.pt', map_location='cuda:0')['model'].float().fuse().eval() 
-       self.model.warmup(imgsz=(1, 3, 640,640))
-    def predict(self, img):
+def predict(model,img):
         img_org = img.copy()
         h,w,s = img_org.shape
         img = letterbox(img, new_shape = 640)[0]
@@ -96,7 +72,7 @@ class OpenCVVideoProcessor(VideoProcessorBase):
 
         #print("shape tensor image:", image.shape)
           
-        pred = self.model(image)
+        pred = model(image)[0]
         #print("pred shape:", pred.shape)
         temp_img = None
         pred = non_max_suppression(pred, 0.5, 0.5,None)
@@ -155,29 +131,35 @@ class OpenCVVideoProcessor(VideoProcessorBase):
                         
                         num_boxes = num_boxes + 1
                         
-        return img_org    
-    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
-        img = frame.to_ndarray(format="bgr24")
-        img = self.predict(img)
-        #self.result_queue = queue.Queue()
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
+        return img_org  
 
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
+
 
 if __name__ == "__main__":
-  
+      
     st.header("Phan Minh Toan @Real-Time Detection ")
     if (not os.path.exists('./yolov5s.pt')):
         with st.spinner(text="Download model in progress..."):
-            gdd.download_file_from_google_drive(file_id='1V5hUspqnI6uvBIPyccga9lsz8-fWFQ9p',
-                                    dest_path='./yolov5n.pt')
+            gdd.download_file_from_google_drive(file_id='1E_eHP5Y2tlNFIOokC9vVpteUhls6l-_R',
+                                    dest_path='./yolov5s.pt')
 
-    webrtc_ctx = webrtc_streamer(
-        key="opencv-filter",
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration=RTC_CONFIGURATION,
-        video_processor_factory=OpenCVVideoProcessor,
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True)
+    model  = torch.load('yolov5s.pt', map_location='cpu')['model'].float().fuse().eval() 
+
+    uploaded_file = st.file_uploader("Upload file")
+    tfile = tempfile.NamedTemporaryFile(delete=False) 
+    if uploaded_file is not None:
+        tfile.write(uploaded_file.getvalue())
+
+    vf = cv.VideoCapture(tfile.name)
+    stframe = st.empty()
+
+    while vf.isOpened():
+        ret, frame = vf.read()
+        
+        # if frame is read correctly ret is True
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+        frame = predict(model, frame)
+        frame= cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        stframe.image(frame)
