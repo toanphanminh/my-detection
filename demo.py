@@ -117,16 +117,16 @@ def predict(model,img):
                         startY = int(bbox_new[1])
                         endX = int(bbox_new[2])
                         endY = int(bbox_new[3])
-                        cv2.rectangle(img_org, (startX, startY), (endX, endY), COLORS[int(cls)], 2)
+                        cv2.rectangle(img_org, (startX, startY), (endX, endY), COLORS[int(cls)], 6)
                         y = startY - 15 if startY - 15 > 15 else startY + 15
                         cv2.putText(
                             img_org,
                             label,
                             (startX, y),
                             cv2.FONT_HERSHEY_SIMPLEX,
-                            0.5,
+                            0.9,
                             COLORS[int(cls)],
-                            2,
+                            3,
                         )
                         
                         num_boxes = num_boxes + 1
