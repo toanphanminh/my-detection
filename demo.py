@@ -137,7 +137,7 @@ def predict(model,img):
 
 if __name__ == "__main__":
       
-    st.header("Phan Minh Toan @Real-Time Detection ")
+    st.header("Tran NQ - Ton Ton @Real-Time Detection ")
     if (not os.path.exists('./yolov5s.pt')):
         with st.spinner(text="Download model in progress..."):
             gdd.download_file_from_google_drive(file_id='1E_eHP5Y2tlNFIOokC9vVpteUhls6l-_R',
